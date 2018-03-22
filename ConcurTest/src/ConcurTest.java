@@ -1,6 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -29,6 +30,8 @@ public class ConcurTest {
     }
 
     private int counter = 0;
+
+    private AtomicInteger atomicCounter = new AtomicInteger(0);
 
     private void increaseCount() {
         counter += 1;
@@ -296,6 +299,62 @@ public class ConcurTest {
         stop(executor);
     }
 
+    private void testAtomic() {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        IntStream.range(0, 1000)
+                .forEach(i -> executor.submit(atomicCounter::incrementAndGet));
+
+        stop(executor);
+
+        System.out.println(atomicCounter.get());
+    }
+
+    private void testConcurrentMap() {
+        ConcurrentMap<String, String> map = new ConcurrentHashMap<>();
+        map.put("раз", "два");
+        map.put("пять", "раз");
+        map.put("r2", "d2");
+        map.put("c3", "p0");
+
+        map.forEach((key, value) -> System.out.println(key + " = " + value));
+
+        map.replaceAll((key, value) -> "r2".equals(key) ? "d3" : value);
+        System.out.println(map.get("r2"));
+
+        map.compute("раз", (key, value) -> value + key);
+        System.out.println(map.get("раз"));
+
+        System.out.println(ForkJoinPool.getCommonPoolParallelism());
+
+        ConcurrentHashMap<String, String> hashMap = (ConcurrentHashMap<String, String>) map;    // to achieve parallel operations
+        hashMap.forEach(1, (key, value) -> System.out.println(key + " = " + value + " " + Thread.currentThread().getName()));
+
+        System.out.println();
+
+        String result = hashMap.search(1, (key, value) -> {
+            System.out.println(Thread.currentThread().getName());
+            if ("ра".equals(key)) {
+                return value;
+            }
+            return null;
+        });
+
+        System.out.println("Result: " + (result == null ? "nothing" : result));
+
+        String res = hashMap.reduce(1,
+                (key, value) -> {
+                    System.out.println("Transform: " + Thread.currentThread().getName());
+                    return key + "=" + value;
+                },
+                (s1, s2) -> {
+                    System.out.println("Reduce: " + Thread.currentThread().getName());
+                    return s1 + ", " + s2;
+                });
+
+        System.out.println("Result: " + res);
+    }
+
     public static void main(String[] args) {
         ConcurTest concurTest = new ConcurTest();
 //        concurTest.runConcurrent();
@@ -305,6 +364,8 @@ public class ConcurTest {
 //        concurTest.testStampedLock();
 //        concurTest.testOptimisticLock();
 //        concurTest.testLockConversion();
-        concurTest.testSemaphore();
+//        concurTest.testSemaphore();
+//        concurTest.testAtomic();
+        concurTest.testConcurrentMap();
     }
 }
