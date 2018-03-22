@@ -1,6 +1,4 @@
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class ConcurTest {
 
@@ -12,29 +10,44 @@ public class ConcurTest {
 //        Thread thread = new Thread(task);
 //        thread.run();
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        for (int i = 0; i < 100; ++i) {
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        for (int i = 0; i < 10; ++i) {
             executor.submit(() -> {
                 String threadName = Thread.currentThread().getName();
-                System.out.println("Hello " + Math.sin(Math.sqrt(threadName.hashCode())));
+                System.out.println("Hello " + threadName);
             });
         }
 
-        try {
-            System.out.println("attempt to shutdown executor");
-            executor.shutdown();
-            executor.awaitTermination(1, TimeUnit.MICROSECONDS);
-        }
-        catch (InterruptedException e) {
-            System.err.println("tasks interrupted");
-        }
-        finally {
-            if (!executor.isTerminated()) {
-                System.err.println("cancel non-finished tasks");
+//        executor.shutdown();
+
+        Callable<Integer> task = () -> {
+            try {
+                String threadName = Thread.currentThread().getName();
+                System.out.println("Hello Callable " + threadName);
+                TimeUnit.SECONDS.sleep(2);
+                return 42;
             }
-            executor.shutdownNow();
-            System.out.println("shutdown finished");
+            catch (InterruptedException e) {
+                throw new IllegalStateException("task interrupted", e);
+            }
+        };
+
+        try {
+            System.out.println(task.call());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        Future<Integer> ft = executor.submit(task);
+        try {
+            int res = ft.get(1, TimeUnit.SECONDS);
+            System.out.println(ft.isDone() ? "DONE" : "UNDONE");
+            System.out.println(res);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            e.printStackTrace();
+        }
+
+        executor.shutdown();
 
     }
 }
